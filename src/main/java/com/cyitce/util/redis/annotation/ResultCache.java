@@ -1,24 +1,32 @@
 package com.cyitce.util.redis.annotation;
 
-import java.lang.annotation.*;
+import org.springframework.core.annotation.AliasFor;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * @author jianhongyu
- * @version 1.0
+ * @version 1.1
  * @date 2020/11/19 20:02
  * @see ResultCacheImpl
  * 该注解可以作用于任意被Spring容器管理的Bean类中的任意具有返回值（该返回值为基本数据类型及包装类、String、简单Bean类等）的方法上，给予该方法缓存的能力
  */
-@Documented
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ResultCache {
 
+    @AliasFor("key")
+    String value() default "";
+
     /**
-     * Redis缓存的Key
+     * Redis缓存的Key，默认为：     类路径.方法名:参数1:参数2:...
      *
      * @return String
      */
+    @AliasFor("value")
     String key() default "";
 
     /**
@@ -55,4 +63,18 @@ public @interface ResultCache {
      * @return String
      */
     String nullSave() default "";
+
+    /**
+     * 是否开启分布式锁，当缓存不存在并保存缓存时，开启同步锁。
+     *
+     * @return boolean
+     */
+    boolean syncLock() default true;
+
+    /**
+     * 同步锁最大持有时间，当持有锁超过一定时间后自动释放。单位ms
+     *
+     * @return long，默认3分钟。
+     */
+    long maxLockTime() default 1800000;
 }

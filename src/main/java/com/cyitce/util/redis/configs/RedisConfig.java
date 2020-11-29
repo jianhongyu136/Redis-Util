@@ -14,16 +14,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * @author jianhongyu
- * @version 1.0
+ * @version 1.1
  * @date 2020/11/11 16:30
  */
 @Configuration
-@ConditionalOnMissingBean(name = "redisTemplate")
 public class RedisConfig {
     /**
      * redisTemplate 序列化使用的jdkSerializer, 存储二进制字节码, 所以自定义序列化类
      */
     @Bean
+    @ConditionalOnMissingBean(name = "redisTemplate")
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
         RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(redisConnectionFactory);
@@ -35,11 +35,16 @@ public class RedisConfig {
         objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         objectMapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
         jackson2JsonRedisSerializer.setObjectMapper(objectMapper);
+        // String序列化
+        StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
 
         // 设置value的序列化规则和 key的序列化规则
-        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        redisTemplate.setKeySerializer(stringRedisSerializer);
         redisTemplate.setValueSerializer(jackson2JsonRedisSerializer);
+        redisTemplate.setHashKeySerializer(stringRedisSerializer);
+        redisTemplate.setHashValueSerializer(jackson2JsonRedisSerializer);
         redisTemplate.afterPropertiesSet();
         return redisTemplate;
     }
+
 }

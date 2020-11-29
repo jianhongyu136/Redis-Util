@@ -1,5 +1,6 @@
 package com.cyitce.util.redis.annotation;
 
+import com.cyitce.util.redis.RedisUtil;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,7 +11,6 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.InvocationTargetException;
@@ -20,22 +20,24 @@ import java.util.logging.Logger;
 
 /**
  * @author jianhongyu
- * @version 1.0
+ * @version 1.1
  * @date 2020/11/19 20:11
  * @see ResultCache
- * 该类为ResultCache具体实现类，给予Spring-Aop实现。
+ * 该类为ResultCache注解的具体实现类，基于Spring-Aop实现。
  */
 @Aspect
 @Component
 public class ResultCacheImpl {
 
-    private final RedisTemplate redisTemplate;
+    public static final int WAIT_TIMES = 20;
+    public static final int EXPIRE_RANDOM_LENGTH = 2;
     private final Logger logger = Logger.getLogger(ResultCacheImpl.class.getName());
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RedisUtil redisUtil;
 
     @Autowired
-    public ResultCacheImpl(RedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
+    public ResultCacheImpl(RedisUtil redisUtil) {
+        this.redisUtil = redisUtil;
         objectMapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         objectMapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL);
     }
@@ -59,61 +61,78 @@ public class ResultCacheImpl {
         }
         String cacheKey = keyBuilder.toString();
         logger.info(methodName + " - cache key: " + cacheKey);
-        Object cache = redisTemplate.opsForValue().get(cacheKey);
+        Object cache = redisUtil.get(cacheKey);
         if (cache != null) {
             result = cache;
             long end = System.currentTimeMillis();
             logger.info(methodName + " - use cache, used time " + (end - start) + "ms");
-            if (!resultCache.callbackMethod().isEmpty())
+            if (!resultCache.callbackMethod().isEmpty()) {
                 result = toCallback(methodName, joinPoint.getTarget(), resultCache.callbackMethod(), result);
+            }
 
         } else {
-            // 当缓存不存在，或者过期时，开启一个锁，改锁最多持续3分钟
-            if (redisTemplate.opsForValue().setIfAbsent(cacheKey + ":multi", "multi", 3, TimeUnit.MINUTES)) {
-                try {
-                    result = joinPoint.proceed(joinPoint.getArgs());
-                    long expire = 0;
-                    if (resultCache.expire() > 0) {
-                        expire = resultCache.expire();
-                        long[] expireRandomAppend = resultCache.expireRandomAppend();
-                        if (expireRandomAppend.length == 2 && expireRandomAppend[0] <= expireRandomAppend[1])
-                            expire += expireRandomAppend[0] + (long) ((expireRandomAppend[1] - expireRandomAppend[0]) * Math.random());
-                    }
-                    result = (result == null ? resultCache.nullSave() : result);
-                    if (expire > 0) {
-                        redisTemplate.opsForValue().set(cacheKey, result, expire, TimeUnit.MILLISECONDS);
-                    } else {
-                        redisTemplate.opsForValue().set(cacheKey, result);
-                    }
-                    if (!redisTemplate.delete(cacheKey + ":multi")) {
-                        logger.warning(methodName + " - delete multi failed");
+            if (resultCache.syncLock()) {
+                // 当缓存不存在，或者过期时，开启一个锁
+                if (redisUtil.lock(cacheKey, resultCache.maxLockTime(), TimeUnit.MILLISECONDS)) {
+                    logger.info(methodName + " - set lock success");
+                    result = doSaveCache(joinPoint, resultCache, cacheKey);
+                    if (!redisUtil.unlock(cacheKey)) {
+                        logger.warning(methodName + " - unlock failed");
                     }
                     long end = System.currentTimeMillis();
-                    logger.info(methodName + " - save cache, used time " + (end - start) + "ms");
-                } catch (Throwable e) {
-                    e.printStackTrace();
+                    logger.info(methodName + " - save cache has lock, used time " + (end - start) + "ms");
+                } else {
+                    // 等待拿锁的进程结束
+                    // 最多等待20次
+                    for (int i = 0; i < WAIT_TIMES; i++) {
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        if ((result = redisUtil.get(cacheKey)) != null) {
+                            break;
+                        }
+                    }
+                    long end = System.currentTimeMillis();
+                    if (result == null) {
+                        logger.warning(methodName + " - wait cache failed, used time " + (end - start) + "ms");
+                    } else {
+                        logger.info(methodName + " - wait cache success, used time " + (end - start) + "ms");
+                    }
+                    if (!resultCache.callbackMethod().isEmpty()) {
+                        result = toCallback(methodName, joinPoint.getTarget(), resultCache.callbackMethod(), result);
+                    }
                 }
             } else {
-                // 等待拿锁的进程结束
-                for (int i = 0; i < 20; i++) { // 最多等待20次
-                    try {
-                        Thread.sleep(50);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    if ((result = redisTemplate.opsForValue().get(cacheKey)) != null) {
-                        break;
-                    }
-                }
+                result = doSaveCache(joinPoint, resultCache, cacheKey);
                 long end = System.currentTimeMillis();
-                if (result == null) {
-                    logger.warning(methodName + " - wait cache failed, used time " + (end - start) + "ms");
-                } else {
-                    logger.info(methodName + " - wait cache success, used time " + (end - start) + "ms");
-                }
-                if (!resultCache.callbackMethod().isEmpty())
-                    result = toCallback(methodName, joinPoint.getTarget(), resultCache.callbackMethod(), result);
+                logger.info(methodName + " - save cache no lock, used time " + (end - start) + "ms");
             }
+        }
+        return result;
+    }
+
+    private Object doSaveCache(ProceedingJoinPoint joinPoint, ResultCache resultCache, String cacheKey) {
+        Object result = null;
+        try {
+            result = joinPoint.proceed(joinPoint.getArgs());
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+        long expire = 0;
+        if (resultCache.expire() > 0) {
+            expire = resultCache.expire();
+            long[] expireRandomAppend = resultCache.expireRandomAppend();
+            if (expireRandomAppend.length == EXPIRE_RANDOM_LENGTH && expireRandomAppend[0] <= expireRandomAppend[1]) {
+                expire += expireRandomAppend[0] + (long) ((expireRandomAppend[1] - expireRandomAppend[0]) * Math.random());
+            }
+        }
+        result = (result == null ? resultCache.nullSave() : result);
+        if (expire > 0) {
+            redisUtil.set(cacheKey, result, expire, TimeUnit.MILLISECONDS);
+        } else {
+            redisUtil.set(cacheKey, result);
         }
         return result;
     }

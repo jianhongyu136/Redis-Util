@@ -1,4 +1,4 @@
-package com.cyitce.util.redis.beans;
+package com.cyitce.util.redis.pojo;
 
 /**
  * @author jianhongyu

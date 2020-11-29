@@ -4,30 +4,40 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.*;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
  * @author jianhongyu
- * @version 1.0
+ * @version 1.1
  * @date 2020/11/10 15:56
+ * @see com.cyitce.util.redis.configs.RedisConfig   RedisTemplate已配置
  * Redis访问工具类，Key默认为String类型，Value默认为Object，Value已开启JSON转换。
  */
 @Component
 public class RedisUtil {
 
+
+    public static final String LOCK = ":lock";
     private static final Logger logger = Logger.getLogger(RedisUtil.class.getName());
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
     public RedisUtil(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
-        redisTemplate.setEnableTransactionSupport(true);
-        logger.info("RedisTemplate已初始化.");
+        logger.info("redisTemplate init.");
     }
 
-    public RedisTemplate<String, Object> template() {
+    /**
+     * 获取RedisTemplate
+     *
+     * @return RedisTemplate<String, Object>
+     */
+    public RedisTemplate<String, Object> redisTemplate() {
         return redisTemplate;
     }
 
@@ -85,12 +95,14 @@ public class RedisUtil {
         return redisTemplate.opsForHyperLogLog();
     }
 
+    ////////////////////////////////////事务/////////////////////////////////////
+
     /**
      * 获取ZSet操作类
      *
      * @return ZSetOperations<String, Object>
      */
-    public ZSetOperations<String, Object> opsForZSet() {
+    public ZSetOperations<String, Object> opsForZset() {
         return redisTemplate.opsForZSet();
     }
 
@@ -98,9 +110,9 @@ public class RedisUtil {
      * 开启事务
      */
     public void multi() {
+        redisTemplate.setEnableTransactionSupport(true);
         redisTemplate.multi();
     }
-
 
     /**
      * 执行事务
@@ -109,11 +121,21 @@ public class RedisUtil {
         return redisTemplate.exec();
     }
 
+
+    ////////////////////////////////通常////////////////////////////////////////
+
     /**
      * 取消事务
      */
     public void discard() {
         redisTemplate.discard();
+    }
+
+    /**
+     * 设置过期时间
+     */
+    public Boolean expire(String key, long time, TimeUnit timeUnit) {
+        return redisTemplate.expire(key, time, timeUnit);
     }
 
     /**
@@ -127,18 +149,331 @@ public class RedisUtil {
     }
 
     /**
-     * 设置过期时间
+     * 截取字符串
+     *
+     * @param key   键
+     * @param start 开始索引
+     * @param end   结束索引
+     * @return 截取后的字符串
      */
-    public Boolean expire(String key, long time, TimeUnit timeUnit) {
-        return redisTemplate.expire(key, time, timeUnit);
+    public String getRange(String key, int start, int end) {
+        return redisTemplate.opsForValue().get(key, start, end);
     }
 
+    /**
+     * 设置kv
+     *
+     * @param key   键
+     * @param value 值
+     */
     public void set(String key, Object value) {
-        opsForValue().set(key, value);
+        redisTemplate.opsForValue().set(key, value);
     }
 
+    /**
+     * 设置kv
+     *
+     * @param key      键
+     * @param value    值
+     * @param time     过期时间
+     * @param timeUnit 过期时间单位
+     */
     public void set(String key, Object value, long time, TimeUnit timeUnit) {
-        opsForValue().set(key, value, time, timeUnit);
+        redisTemplate.opsForValue().set(key, value, time, timeUnit);
     }
+
+    /**
+     * 删除键
+     *
+     * @param key 键
+     * @return 是否成功
+     */
+    public Boolean delete(String key) {
+        return redisTemplate.delete(key);
+    }
+
+    /**
+     * 删除多个键
+     *
+     * @param keys 键数组
+     * @return Long
+     */
+    public Long delete(String... keys) {
+        return redisTemplate.delete(Arrays.asList(keys));
+    }
+
+    /**
+     * 删除多个键
+     *
+     * @param keys 键集合
+     * @return Long
+     */
+    public Long delete(Collection<String> keys) {
+        return redisTemplate.delete(keys);
+    }
+
+    /**
+     * 指定位置替换
+     *
+     * @param key    键
+     * @param offset 替换开始位置
+     * @param value  替换的值
+     */
+    public void setRange(String key, int offset, String value) {
+        redisTemplate.opsForValue().set(key, value, offset);
+    }
+
+    /**
+     * 判断key是否存在
+     *
+     * @param key 键
+     * @return 是否存在
+     */
+    public Boolean exists(String key) {
+        return redisTemplate.hasKey(key);
+    }
+
+    /**
+     * 向Value后追加字符
+     *
+     * @param key   键
+     * @param value 值
+     * @return 追加后字符长度
+     */
+    public Integer append(String key, String value) {
+        return redisTemplate.opsForValue().append(key, value);
+    }
+
+    /**
+     * 获取Value长度
+     *
+     * @param key 键
+     * @return 长度
+     */
+    public Long strLen(String key) {
+        return redisTemplate.opsForValue().size(key);
+    }
+
+    /**
+     * 自增
+     *
+     * @param key 键
+     * @return 自增后的值
+     */
+    public Long incr(String key) {
+        return redisTemplate.opsForValue().increment(key);
+    }
+
+    /**
+     * 自减
+     *
+     * @param key 键
+     * @return 自减后的值
+     */
+    public Long decr(String key) {
+        return redisTemplate.opsForValue().decrement(key);
+    }
+
+    /**
+     * 步长自增
+     *
+     * @param key   值
+     * @param delta 步长
+     * @return 自增后的值
+     */
+    public Long incrBy(String key, long delta) {
+        return redisTemplate.opsForValue().increment(key, delta);
+    }
+
+    /**
+     * 步长自减
+     *
+     * @param key   键
+     * @param delta 值
+     * @return 自减后的值
+     */
+    public Long decrBy(String key, long delta) {
+        return redisTemplate.opsForValue().decrement(key, delta);
+    }
+
+    /**
+     * 如果键不存在就设置，否则不设置
+     *
+     * @param key   键
+     * @param value 值
+     * @return 是否成功
+     */
+    public Boolean setnx(String key, Object value) {
+        return redisTemplate.opsForValue().setIfAbsent(key, value);
+    }
+
+    /**
+     * 如果键不存在就设置，否则不设置
+     *
+     * @param key     键
+     * @param value   值
+     * @param timeout 过期时间
+     * @param unit    过期时间单位
+     * @return 是否成功
+     */
+    public Boolean setnx(String key, Object value, long timeout, TimeUnit unit) {
+        return redisTemplate.opsForValue().setIfAbsent(key, value, timeout, unit);
+    }
+
+    /**
+     * 获取过期时间
+     *
+     * @param key 键
+     * @return 过期时间
+     */
+    public Long getExpire(String key) {
+        return redisTemplate.getExpire(key);
+    }
+
+    /**
+     * 获取过期时间
+     *
+     * @param key  键
+     * @param unit 时间单位
+     * @return 过期时间
+     */
+    public Long getExpire(String key, TimeUnit unit) {
+        return redisTemplate.getExpire(key, unit);
+    }
+
+    /**
+     * 批量获取Value
+     *
+     * @param key 键数组
+     * @return 值集合
+     */
+    public List<Object> mget(String... key) {
+        return redisTemplate.opsForValue().multiGet(Arrays.asList(key));
+    }
+
+    /**
+     * 批量获取Value
+     *
+     * @param key 键集合
+     * @return 值集合
+     */
+    public List<Object> mget(Collection<String> key) {
+        return redisTemplate.opsForValue().multiGet(key);
+    }
+
+    /**
+     * 获取key
+     *
+     * @param pattern 匹配字符
+     * @return 键集合
+     */
+    public Set<String> keys(String pattern) {
+        return redisTemplate.keys(pattern);
+    }
+
+    /////////////////////////////////////Lock////////////////////////////////////
+
+    /**
+     * 非阻塞加锁，默认最大持有锁时间3分钟
+     *
+     * @param lockId 锁ID
+     * @return 是否成功
+     */
+    public Boolean lock(String lockId) {
+        return lock(lockId, 3, TimeUnit.MINUTES);
+    }
+
+    /**
+     * 非阻塞加锁
+     *
+     * @param lockId      锁ID
+     * @param maxLockTime 最大持有锁时间
+     * @param timeUnit    时间单位
+     * @return 是否成功
+     */
+    public Boolean lock(String lockId, long maxLockTime, TimeUnit timeUnit) {
+        Boolean b = redisTemplate.opsForHash().putIfAbsent(lockId + LOCK, "threadID", Thread.currentThread().getId());
+        if (b) {
+            redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
+            redisTemplate.opsForHash().put(lockId + LOCK, "enterCount", 1);
+        } else if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
+            redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
+            redisTemplate.opsForHash().increment(lockId + LOCK, "enterCount", 1);
+            b = true;
+        }
+        return b;
+    }
+
+    /**
+     * 阻塞加锁，默认最大持有锁时间3分钟
+     *
+     * @param lockId      锁ID
+     * @param waitMaxTime 等待超时时间
+     * @return 是否成功
+     */
+    public Boolean lockBlock(String lockId, long waitMaxTime, TimeUnit timeUnit) {
+        return lockBlock(lockId, waitMaxTime, 3, timeUnit);
+    }
+
+    /**
+     * 阻塞加锁
+     *
+     * @param lockId      锁ID
+     * @param waitMaxTime 等待超时时间
+     * @param maxLockTime 最大持有锁时间
+     * @param timeUnit    时间单位
+     * @return 是否成功
+     */
+    public Boolean lockBlock(String lockId, long waitMaxTime, long maxLockTime, TimeUnit timeUnit) {
+        long startTime = System.currentTimeMillis();
+        long maxTimeMillis = timeUnit.toMillis(waitMaxTime);
+        while (true) {
+            if (lock(lockId, maxLockTime, TimeUnit.MINUTES)) {
+                return true;
+            }
+            try {
+                Thread.sleep(5);
+            } catch (InterruptedException ignored) {
+            }
+            if (System.currentTimeMillis() - startTime >= maxTimeMillis) {
+                return false;
+            }
+        }
+    }
+
+    /**
+     * 设置锁最大持有时间
+     *
+     * @param lockId      锁ID
+     * @param maxLockTime 最大持有锁时间
+     * @param timeUnit    时间单位
+     * @return 是否成功
+     */
+    public Boolean resetMaxLockTime(String lockId, long maxLockTime, TimeUnit timeUnit) {
+        if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
+            return redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
+        }
+        return false;
+    }
+
+
+    /**
+     * 释放锁
+     *
+     * @param lockId 锁ID
+     * @return 是否成功
+     */
+    public Boolean unlock(String lockId) {
+        if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
+            if (redisTemplate.opsForHash().increment(lockId + LOCK, "enterCount", -1) == 0) {
+                return redisTemplate.delete(lockId + LOCK);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /////////////////////////////////////List////////////////////////////////////
+
 
 }

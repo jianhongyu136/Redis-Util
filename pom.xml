@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.3.5.RELEASE</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.cyitce.util</groupId>
+    <artifactId>redis</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>redis-util</name>
+    <description>redis-util</description>
+
+    <properties>
+        <java.version>1.8</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.11.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--  Docker插件  -->
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>1.2.2</version>
+                <configuration>
+                    <!-- 指定远程 Docker 服务IP #注意：端口号为docker.service文件中，自己设置的对外开放的端口号
+                     #地址格式：Docker服务IP:对外开放端口号-->
+                    <dockerHost>http://192.168.14.13:2375</dockerHost>
+                    <!-- 创建者信息 -->
+                    <maintainer>jianhongyu&lt;919053783@qq.com&gt;</maintainer>
+                    <!--指定基础镜像，相当于dockerFile中的FROM<image> -->
+                    <baseImage>java:8</baseImage>
+                    <!--覆盖相同标签镜像 -->
+                    <forceTags>true</forceTags>
+                    <!-- 暴露端口-->
+                    <exposes>8080</exposes>
+                    <!--指定镜像名称:版本 （不能有大写字母！！） -->
+                    <imageName>test/redis-util</imageName>
+                    <!--指定标签 这里指定的是镜像的版本，我们默认版本是latest-->
+                    <imageTags>
+                        <imageTag>0.1</imageTag>
+                    </imageTags>
+                    <!-- 容器启动执行的命令，相当于dockerFile的ENTRYPOINT -->
+                    <entryPoint>["java","-jar","/${project.build.finalName}.jar"]</entryPoint>
+                    <resources>
+                        <resource>
+                            <!-- 指定资源文件 -->
+                            <!-- 指定要复制的目录路径，这里是当前目录 -->
+                            <targetPath>/</targetPath>
+                            <!-- 指定要复制的根目录，这里是target目录 -->
+                            <!-- maven setting 中引入标签 四. 构建 Docker Image -->
+                            <directory>${project.build.directory}</directory>
+                            <!-- 指定需要拷贝的文件，这里指最后生成的jar包 -->
+                            <include>${project.build.finalName}.jar</include>
+                        </resource>
+                    </resources>
+                </configuration>
+            </plugin>
+        </plugins>
+
+    </build>
+
+</project>

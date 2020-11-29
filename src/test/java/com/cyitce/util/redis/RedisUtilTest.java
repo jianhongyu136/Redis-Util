@@ -17,7 +17,7 @@ public class RedisUtilTest {
     private final Logger logger = Logger.getLogger(RedisUtilTest.class.getName());
 
     @Autowired
-    ResultCacheTest resultCacheTest;
+    ResultCacheMethod resultCacheTest;
 
     @Test
     public void getTest() throws InterruptedException {
@@ -26,7 +26,7 @@ public class RedisUtilTest {
                 logger.info(Thread.currentThread().getName() + ":test: " + resultCacheTest.doTest());
             }).start();
         }
-        Thread.sleep(10000);
+        Thread.sleep(5000);
     }
 
 

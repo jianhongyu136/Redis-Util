@@ -2,8 +2,10 @@ package com.cyitce.util.redis;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.redis.core.RedisTemplate;
 
+/**
+ * @author jianhongyu
+ */
 @SpringBootApplication
 public class RedisUtilApplication {
 

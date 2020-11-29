@@ -1,7 +1,6 @@
 package com.cyitce.util.redis;
 
 import com.cyitce.util.redis.annotation.ResultCache;
-import com.cyitce.util.redis.beans.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +12,8 @@ import java.util.logging.Logger;
  * @date 2020/11/20 13:37
  */
 @Component
-public class ResultCacheTest {
-    Logger logger = Logger.getLogger(ResultCacheTest.class.getName());
+public class ResultCacheMethod {
+    Logger logger = Logger.getLogger(ResultCacheMethod.class.getName());
 
     @Autowired
     RedisUtil redisUtil;
@@ -25,6 +24,7 @@ public class ResultCacheTest {
     }
 
     public Object callback(Object o) {
+        logger.info("run callback");
         return o;
     }
 }
