@@ -10,6 +10,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -74,6 +75,8 @@ public class ResultCacheImpl {
             if (resultCache.syncLock()) {
                 // 当缓存不存在，或者过期时，开启一个锁
                 if (redisUtil.lock(cacheKey, resultCache.maxLockTime(), TimeUnit.MILLISECONDS)) {
+                    // redisTemplate.opsForValue().setIfAbsent(cacheKey + LOCK, LOCK/*, resultCache.maxLockTime(), TimeUnit.MILLISECONDS*/)) {
+                    // redisTemplate.expire(cacheKey + LOCK,resultCache.maxLockTime(), TimeUnit.MILLISECONDS);
                     logger.info(methodName + " - set lock success");
                     result = doSaveCache(joinPoint, resultCache, cacheKey);
                     if (!redisUtil.unlock(cacheKey)) {
@@ -105,10 +108,15 @@ public class ResultCacheImpl {
                     }
                 }
             } else {
+
                 result = doSaveCache(joinPoint, resultCache, cacheKey);
                 long end = System.currentTimeMillis();
                 logger.info(methodName + " - save cache no lock, used time " + (end - start) + "ms");
             }
+        }
+        // 返回类型不统一，返回空
+        if (result != null && !((MethodSignature) joinPoint.getSignature()).getReturnType().equals(result.getClass())) {
+            result = null;
         }
         return result;
     }
