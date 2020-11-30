@@ -1,6 +1,11 @@
 package com.cyitce.util.redis;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.connection.RedisZSetCommands;
 import org.springframework.data.redis.core.*;
 import org.springframework.stereotype.Component;
 
@@ -965,5 +970,362 @@ public class RedisUtil {
 
     /////////////////////////////////////ZSet////////////////////////////////////
 
+    /**
+     * ZSet，添加
+     *
+     * @param key   键
+     * @param value 值
+     * @param score 分数
+     * @return 是否成功
+     */
+    public Boolean zAdd(String key, Object value, double score) {
+        return redisTemplate.opsForZSet().add(key, value, score);
+    }
+
+
+    /**
+     * ZSet，根据分数区间获取元素个数
+     *
+     * @param key 键
+     * @param min 最小分数
+     * @param max 最大分数
+     * @return 个数
+     */
+    public Long zCount(String key, double min, double max) {
+        return redisTemplate.opsForZSet().count(key, min, max);
+    }
+
+    /**
+     * ZSet，根据分数排序并获取
+     *
+     * @param key 键
+     * @param min 最小分数
+     * @param max 最大分数
+     * @return 值集合
+     */
+    public Set<Object> zRangeByScore(String key, double min, double max) {
+        return redisTemplate.opsForZSet().rangeByScore(key, min, max);
+    }
+
+    /**
+     * ZSet，根据分数排序并获取
+     *
+     * @param key    键
+     * @param min    最小分数
+     * @param max    最大分数
+     * @param offset 偏移
+     * @param count  个数
+     * @return 值集合
+     */
+    public Set<Object> zRangeByScore(String key, double min, double max, long offset, long count) {
+        return redisTemplate.opsForZSet().rangeByScore(key, min, max, offset, count);
+    }
+
+    /**
+     * ZSet，排序并带分数获取
+     *
+     * @param key   键
+     * @param start 开始
+     * @param end   结束
+     * @return 结果
+     */
+    public Set<ZSetOperations.TypedTuple<Object>> zRangeWithScores(String key, long start, long end) {
+        return redisTemplate.opsForZSet().rangeWithScores(key, start, end);
+    }
+
+    /**
+     * ZSet，直接获取元素
+     *
+     * @param key   键
+     * @param start 开始索引
+     * @param end   结束索引
+     * @return 结果集
+     */
+    public Set<Object> zRange(String key, long start, long end) {
+        return redisTemplate.opsForZSet().range(key, start, end);
+    }
+
+    /**
+     * ZSet，移除元素
+     *
+     * @param key    键
+     * @param values 值数组
+     * @return 结果
+     */
+    public Long zRem(String key, Object... values) {
+        return redisTemplate.opsForZSet().remove(key, values);
+    }
+
+    /**
+     * ZSet，索引区间移除元素
+     *
+     * @param key   键
+     * @param start 开始索引
+     * @param end   结束索引
+     * @return 结果
+     */
+    public Long zRemRange(String key, long start, long end) {
+        return redisTemplate.opsForZSet().removeRange(key, start, end);
+    }
+
+    /**
+     * ZSet，根据分数区间移除元素
+     *
+     * @param key 键
+     * @param min 最小分数
+     * @param max 最大分数
+     * @return 结果
+     */
+    public Long zRemRangeByScore(String key, double min, double max) {
+        return redisTemplate.opsForZSet().removeRangeByScore(key, min, max);
+    }
+
+    /**
+     * ZSet,获取元素的个数
+     *
+     * @param key 键
+     * @return 个数
+     */
+    public Long zCard(String key) {
+        return redisTemplate.opsForZSet().zCard(key);
+    }
+
+    /**
+     * ZSet，根据分数倒序并获取
+     *
+     * @param key 键
+     * @param min 最小分数
+     * @param max 最大分数
+     * @return 值集合
+     */
+    public Set<Object> zReverseRangeByScore(String key, double min, double max) {
+        return redisTemplate.opsForZSet().reverseRangeByScore(key, min, max);
+    }
+
+    /**
+     * ZSet，根据分数倒序并获取
+     *
+     * @param key    键
+     * @param min    最小分数
+     * @param max    最大分数
+     * @param offset 偏移
+     * @param count  个数
+     * @return 值集合
+     */
+    public Set<Object> zReverseRangeByScore(String key, double min, double max, long offset, long count) {
+        return redisTemplate.opsForZSet().reverseRangeByScore(key, min, max, offset, count);
+    }
+
+    /**
+     * ZSet，分数从高到低获取元素
+     *
+     * @param key   键
+     * @param start 开始索引
+     * @param end   结束索引
+     * @return 结果集
+     */
+    public Set<Object> zReverseRange(String key, long start, long end) {
+        return redisTemplate.opsForZSet().reverseRange(key, start, end);
+    }
+
+    /**
+     * ZSet, 返回指定成员区间内的成员，按字典正序排列, 分数必须相同。
+     *
+     * @param key   键
+     * @param range range
+     * @return 结果集
+     */
+    public Set<Object> zRangeByLex(String key, RedisZSetCommands.Range range) {
+        return redisTemplate.opsForZSet().rangeByLex(key, range);
+    }
+
+    /**
+     * ZSet, 返回指定成员区间内的成员，按字典正序排列, 分数必须相同。
+     *
+     * @param key   键
+     * @param range range
+     * @param limit limit
+     * @return 结果集
+     */
+    public Set<Object> zRangeByLex(String key, RedisZSetCommands.Range range, RedisZSetCommands.Limit limit) {
+        return redisTemplate.opsForZSet().rangeByLex(key, range, limit);
+    }
+
+    /////////////////////////////////////GEO////////////////////////////////////
+
+
+    /**
+     * GEO,添加一个或多个地理空间位置到sorted set
+     *
+     * @param key    键
+     * @param point  点
+     * @param member 值
+     * @return 结果
+     */
+    public Long geoAdd(String key, Point point, Object member) {
+        return redisTemplate.opsForGeo().add(key, point, member);
+    }
+
+    /**
+     * GEO,添加一个或多个地理空间位置到sorted set
+     *
+     * @param key      键
+     * @param location 位置
+     * @return 结果
+     */
+    public Long geoAdd(String key, RedisGeoCommands.GeoLocation<Object> location) {
+        return redisTemplate.opsForGeo().add(key, location);
+    }
+
+    /**
+     * GEO,添加一个或多个地理空间位置到sorted set
+     *
+     * @param key       键
+     * @param locations 位置集
+     * @return 结果
+     */
+    public Long geoAdd(String key, Iterable<RedisGeoCommands.GeoLocation<Object>> locations) {
+        return redisTemplate.opsForGeo().add(key, locations);
+    }
+
+
+    /**
+     * GEO，移除元素
+     *
+     * @param key     键
+     * @param members 成员数组
+     * @return 结果
+     */
+    public Long geoRem(String key, Object... members) {
+        return redisTemplate.opsForGeo().remove(key, members);
+    }
+
+    /**
+     * GEO,返回一个标准的地理空间的Geohash字符串
+     *
+     * @param key     键
+     * @param members 成员数组
+     * @return 结果
+     */
+    public List<String> geoHash(String key, Object... members) {
+        return redisTemplate.opsForGeo().hash(key, members);
+    }
+
+
+    /**
+     * GEO，返回地理空间的经纬度
+     *
+     * @param key     键
+     * @param members 成员数组
+     * @return 结果
+     */
+    public List<Point> geoPos(String key, Object... members) {
+        return redisTemplate.opsForGeo().position(key, members);
+    }
+
+    /**
+     * GEO，返回两个地理空间之间的距离
+     *
+     * @param key     键
+     * @param member1 成员1
+     * @param member2 成员2
+     * @return 距离
+     */
+    public Distance geoDist(String key, Object member1, Object member2) {
+        return redisTemplate.opsForGeo().distance(key, member1, member2);
+    }
+
+
+    /**
+     * GEO，查询指定半径内所有的地理空间元素的集合。
+     *
+     * @param key    键
+     * @param member 成员
+     * @param radius 半径
+     * @return 结果集
+     */
+    public GeoResults<RedisGeoCommands.GeoLocation<Object>> geoRadius(String key, Object member, double radius) {
+        return redisTemplate.opsForGeo().radius(key, member, radius);
+    }
+
+    /**
+     * GEO，查询指定半径内所有的地理空间元素的集合。
+     *
+     * @param key      键
+     * @param member   成员
+     * @param distance 距离
+     * @return 结果集
+     */
+    public GeoResults<RedisGeoCommands.GeoLocation<Object>> geoRadius(String key, Object member, Distance distance) {
+        return redisTemplate.opsForGeo().radius(key, member, distance);
+    }
+
+    /////////////////////////////////////HyperLogLog////////////////////////////////////
+
+    /**
+     * HyperLogLog，将指定元素添加到HyperLogLog
+     *
+     * @param key    键
+     * @param values 值数组
+     * @return 结果
+     */
+    public Long pfAdd(String key, Object... values) {
+        return redisTemplate.opsForHyperLogLog().add(key, values);
+    }
+
+    /**
+     * HyperLogLog，Return the approximated cardinality of the set(s) observed by the HyperLogLog at key(s).
+     *
+     * @param keys 键数组
+     * @return 结果
+     */
+    public Long pfCount(String... keys) {
+        return redisTemplate.opsForHyperLogLog().size(keys);
+    }
+
+    /**
+     * HyperLogLog，删除
+     *
+     * @param key 键
+     */
+    public void pfDelete(String key) {
+        redisTemplate.opsForHyperLogLog().delete(key);
+    }
+
+    /**
+     * HyperLogLog,Merge N different HyperLogLogs into a single one.
+     *
+     * @param destination key of HyperLogLog to move source keys into.
+     * @param sourceKeys  must not be {@literal null} or {@literal empty}.
+     * @return 结果
+     */
+    public Long pfDelete(String destination, String... sourceKeys) {
+        return redisTemplate.opsForHyperLogLog().union(destination, sourceKeys);
+    }
+
+    /////////////////////////////////////Bitmap////////////////////////////////////
+
+    /**
+     * Bitmap,返回位的值存储在关键的字符串值的偏移量。
+     *
+     * @param key    键
+     * @param offset 偏移
+     * @return 结果
+     */
+    public Boolean getBit(String key, long offset) {
+        return redisTemplate.opsForValue().getBit(key, offset);
+    }
+
+    /**
+     * Bitmap,设置存储在关键的字符串值的偏移量。
+     *
+     * @param key    键
+     * @param offset 偏移
+     * @param value  值
+     * @return 结果
+     */
+    public Boolean setBit(String key, long offset, boolean value) {
+        return redisTemplate.opsForValue().setBit(key, offset, value);
+    }
 
 }
