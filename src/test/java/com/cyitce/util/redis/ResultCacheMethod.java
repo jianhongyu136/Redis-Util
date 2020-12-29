@@ -1,6 +1,7 @@
 package com.cyitce.util.redis;
 
 import com.cyitce.util.redis.annotation.ResultCache;
+import com.cyitce.util.redis.pojo.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,9 +20,11 @@ public class ResultCacheMethod {
     RedisUtil redisUtil;
 
     @ResultCache(callbackMethod = "callback")
-    public Object doTest() {
-        return redisUtil.get("test");
+    public User doTest() {
+//        return redisUtil.get("test");
+        return new User("jhy", "n");
     }
+
 
     public Object callback(Object o) {
         logger.info("run callback");

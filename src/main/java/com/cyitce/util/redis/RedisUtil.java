@@ -124,14 +124,14 @@ public class RedisUtil {
     }
 
 
-    ////////////////////////////////通常////////////////////////////////////////
-
     /**
      * 取消事务
      */
     public void discard() {
         redisTemplate.discard();
     }
+
+    ////////////////////////////////通常////////////////////////////////////////
 
     /**
      * 设置过期时间
@@ -394,16 +394,18 @@ public class RedisUtil {
      * @return 是否成功
      */
     public Boolean lock(String lockId, long maxLockTime, TimeUnit timeUnit) {
-        Boolean b = redisTemplate.opsForHash().putIfAbsent(lockId + LOCK, "threadID", Thread.currentThread().getId());
-        if (b) {
-            redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
-            redisTemplate.opsForHash().put(lockId + LOCK, "enterCount", 1);
-        } else if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
-            redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
-            redisTemplate.opsForHash().increment(lockId + LOCK, "enterCount", 1);
-            b = true;
-        }
-        return b;
+        return redisTemplate.execute((RedisCallback<Boolean>) connection -> {
+            Boolean b = connection.hashCommands().hSetNX((lockId + LOCK).getBytes(), "threadID".getBytes(), String.valueOf(Thread.currentThread().getId()).getBytes());
+            if (b != null && b) {
+                connection.expire((lockId + LOCK).getBytes(), timeUnit.toSeconds(maxLockTime));
+                connection.hashCommands().hSet((lockId + LOCK).getBytes(), "enterCount".getBytes(), "1".getBytes());
+            } else if (String.valueOf(Thread.currentThread().getId()).equals(new String(connection.hashCommands().hGet((lockId + LOCK).getBytes(), "threadID".getBytes())))) {
+                connection.expire((lockId + LOCK).getBytes(), timeUnit.toSeconds(maxLockTime));
+                connection.hashCommands().hIncrBy((lockId + LOCK).getBytes(), "enterCount".getBytes(), 1);
+                b = true;
+            }
+            return b;
+        });
     }
 
     /**
@@ -452,10 +454,16 @@ public class RedisUtil {
      * @return 是否成功
      */
     public Boolean resetMaxLockTime(String lockId, long maxLockTime, TimeUnit timeUnit) {
-        if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
+        /*if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
             return redisTemplate.expire(lockId + LOCK, maxLockTime, timeUnit);
         }
-        return false;
+        return false;*/
+        return redisTemplate.execute((RedisCallback<Boolean>) connection -> {
+            if (String.valueOf(Thread.currentThread().getId()).equals(new String(connection.hashCommands().hGet((lockId + LOCK).getBytes(), "threadID".getBytes())))) {
+                return connection.expire((lockId + LOCK).getBytes(), timeUnit.toSeconds(maxLockTime));
+            }
+            return false;
+        });
     }
 
 
@@ -466,13 +474,23 @@ public class RedisUtil {
      * @return 是否成功
      */
     public Boolean unlock(String lockId) {
-        if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
+        /*if (String.valueOf(Thread.currentThread().getId()).equals(String.valueOf(redisTemplate.opsForHash().get(lockId + LOCK, "threadID")))) {
             if (redisTemplate.opsForHash().increment(lockId + LOCK, "enterCount", -1) <= 0) {
                 return redisTemplate.delete(lockId + LOCK);
             }
             return true;
         }
-        return false;
+        return false;*/
+        return redisTemplate.execute((RedisCallback<Boolean>) connection -> {
+            if (String.valueOf(Thread.currentThread().getId()).equals(new String(connection.hashCommands().hGet((lockId + LOCK).getBytes(), "threadID".getBytes())))) {
+                if (connection.hashCommands().hIncrBy((lockId + LOCK).getBytes(), "enterCount".getBytes(), -1) <= 0) {
+                    Long l = connection.del((lockId + LOCK).getBytes());
+                    return l != null && l == 1;
+                }
+                return true;
+            }
+            return false;
+        });
     }
 
     /////////////////////////////////////List////////////////////////////////////

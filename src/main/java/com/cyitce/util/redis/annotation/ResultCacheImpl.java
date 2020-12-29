@@ -11,13 +11,14 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 /**
  * @author jianhongyu
@@ -32,7 +33,7 @@ public class ResultCacheImpl {
 
     public static final int WAIT_TIMES = 20;
     public static final int EXPIRE_RANDOM_LENGTH = 2;
-    private final Logger logger = Logger.getLogger(ResultCacheImpl.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(ResultCacheImpl.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RedisUtil redisUtil;
 
@@ -80,7 +81,7 @@ public class ResultCacheImpl {
                     logger.info(methodName + " - set lock success");
                     result = doSaveCache(joinPoint, resultCache, cacheKey);
                     if (!redisUtil.unlock(cacheKey)) {
-                        logger.warning(methodName + " - unlock failed");
+                        logger.warn(methodName + " - unlock failed");
                     }
                     long end = System.currentTimeMillis();
                     logger.info(methodName + " - save cache has lock, used time " + (end - start) + "ms");
@@ -99,7 +100,7 @@ public class ResultCacheImpl {
                     }
                     long end = System.currentTimeMillis();
                     if (result == null) {
-                        logger.warning(methodName + " - wait cache failed, used time " + (end - start) + "ms");
+                        logger.warn(methodName + " - wait cache failed, used time " + (end - start) + "ms");
                     } else {
                         logger.info(methodName + " - wait cache success, used time " + (end - start) + "ms");
                     }
@@ -152,7 +153,7 @@ public class ResultCacheImpl {
             result = method.invoke(target, result);
             logger.info(methodName + " - callback finished");
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            logger.warning(methodName + " - callback failed: ");
+            logger.warn(methodName + " - callback failed: ");
             e.printStackTrace();
         }
         return result;
